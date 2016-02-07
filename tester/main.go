@@ -17,8 +17,11 @@ func main() {
 	source.AddArtifact("B", semver.MustParse("1.1.0"))
 	source.AddArtifact("B", semver.MustParse("1.2.0"))
 
+	// TODO: improve this interface to look more like the one above (adder)
 	constraints := ss.ConstraintSet{}
-	constraints["A"] = MustParseRange(">1.1.0")
+	constraints["A"] = []ss.Constraint{
+		{Range: MustParseRange(">1.1.0")},
+	}
 
 	// TODO: need a function that can look at a set of constraints and establish that they are disjoint
 	//         i.e. A <1 and A >2 could never be solved in principle

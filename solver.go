@@ -3,6 +3,8 @@ package semver_solver
 import (
 	"log"
 	"sort"
+
+	"github.com/blang/semver"
 )
 
 // This would become the 'simple solver' if we ever added other solvers (SAT etc)
@@ -11,10 +13,25 @@ type Solver struct {
 	Source ArtifactSource
 }
 
-func (s Solver) Solve(initCS ConstraintSet) {
+func (s *Solver) Solve(initCS ConstraintSet) {
 	ws := WorkingSet{
 		source:          s.Source,
 		artifactsByName: make(map[string][]Artifact),
+	}
+
+	var errors []error
+
+	for name, constraints := range initCS {
+		for _, constraint := range constraints {
+			if error := ws.ConsumeUntil(name, constraint.Range); error != nil {
+				errors = append(errors, error)
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		log.Println(errors)
+		return
 	}
 
 	cs := ConstraintSet{}
@@ -25,11 +42,17 @@ func (s Solver) Solve(initCS ConstraintSet) {
 	// picks := map[string]Artifact{}
 	// picks are by definition the heads of the working set
 
-	log.Println(s._solve(ws, cs))
+	log.Println(_solve(ws, cs))
 	log.Println(ws)
 }
 
-func (s Solver) _solve(ws WorkingSet, workingCS ConstraintSet) error {
+func _solve(ws WorkingSet, cs ConstraintSet) error {
+	for name, constraints := range cs {
+		for _, constraint := range constraints {
+			ws.ConsumeUntil(name, constraint.Range)
+		}
+	}
+
 	// for name, svRange := range workingCS {
 	// chomp through non-matching items in working set if at root
 	// otherwise return error if non-root and head does not match constraint
@@ -71,7 +94,7 @@ type WorkingSet struct {
 	artifactsByName map[string][]Artifact
 }
 
-func (ws WorkingSet) EnsureCache(name string) []Artifact {
+func (ws *WorkingSet) EnsureCache(name string) []Artifact {
 	artifacts, ok := ws.artifactsByName[name]
 
 	if ok {
@@ -91,8 +114,12 @@ func (ws WorkingSet) EnsureCache(name string) []Artifact {
 	return localCopy
 }
 
+func (ws *WorkingSet) ConsumeUntil(name string, svRange semver.Range) error {
+	return nil
+}
+
 // this is the simple version which may be replaced by Head, Tail and Chomp operations
-func (ws WorkingSet) Get(name string) []Artifact {
+func (ws *WorkingSet) Get(name string) []Artifact {
 	artifacts := ws.EnsureCache(name)
 	return artifacts
 }
