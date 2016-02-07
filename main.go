@@ -54,6 +54,25 @@ type Artifact struct {
 	dependsOn ConstraintSet
 }
 
+// Support sorting
+type SortableArtifacts []Artifact
+
+func (a SortableArtifacts) Len() int {
+	return len(a)
+}
+
+// Swap swaps two versions inside the collection by its indices
+func (a SortableArtifacts) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+// Less checks if version at index i is less than version at index j
+func (a SortableArtifacts) Less(i, j int) bool {
+	return a[i].version.LT(a[j].version)
+}
+
+// --sorting
+
 // ArtifactSet (dummy implementation of a repo) - this will actually become an interface
 type ArtifactSet map[string][]Artifact
 
@@ -71,6 +90,18 @@ func (as ArtifactSet) allVersionsOf(artifactNames []string) ArtifactSet {
 
 type ConstraintSet map[string]semver.Range
 
+func Filter(artifacts []Artifact, svRange semver.Range) []Artifact {
+	var filtered []Artifact
+
+	for _, a := range artifacts {
+		if svRange(a.version) {
+			filtered = append(filtered, a)
+		}
+	}
+
+	return filtered
+}
+
 func Solve(sourceAS ArtifactSet, sourceCS ConstraintSet) (map[string]Artifact, error) {
 	workingAS := ArtifactSet{}
 
@@ -78,20 +109,26 @@ func Solve(sourceAS ArtifactSet, sourceCS ConstraintSet) (map[string]Artifact, e
 	var names []string
 	for name := range sourceCS {
 		workingCS[name] = sourceCS[name]
-		names := append(names, name)
+		names = append(names, name)
 	}
 
 	getAllNewArtifactInfo(sourceAS, workingAS, names)
 
 	picks := map[string]Artifact{}
 
-	_solve(sourceAS, workingAS, workingCS, picks)
+	err := _solve(sourceAS, workingAS, workingCS, picks)
 
-	return picks, errors.New("no solution")
+	return picks, err
 }
 
 func _solve(sourceAS, workingAS ArtifactSet, workingCS ConstraintSet, picks map[string]Artifact) error {
 	for name, svRange := range workingCS {
+		filtered := Filter(workingAS[name], svRange)
+
+		if len(filtered) == 0 {
+			// TODO: instrument for friendly debug (we can scan the picks for a list of active constraints)
+			return errors.New("no solution")
+		}
 
 	}
 
@@ -116,8 +153,8 @@ func getAllNewArtifactInfo(from, to ArtifactSet, names []string) {
 	log.Printf("cache miss for artifacts: %v, (requested: %v)\n", namesToGet, names)
 
 	for name, artifacts := range from.allVersionsOf(namesToGet) {
-		to[name] = append(to[name], artifacts...) // copy for isolation
-		sort.Sort(sort.Reverse(to[name]))         // and reverse sort to make all the 'default to latest' optimizations work
+		to[name] = append(to[name], artifacts...)            // copy for isolation
+		sort.Sort(sort.Reverse(SortableArtifacts(to[name]))) // and reverse sort to make all the 'default to latest' optimizations work
 	}
 }
 
