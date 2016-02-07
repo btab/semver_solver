@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"semver_solver/Godeps/_workspace/src/github.com/blang/semver"
+	"github.com/blang/semver"
 )
 
 func main() {
