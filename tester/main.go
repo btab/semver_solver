@@ -17,23 +17,15 @@ func main() {
 	source.AddArtifact("B", semver.MustParse("1.1.0"))
 	source.AddArtifact("B", semver.MustParse("1.2.0"))
 
-	// TODO: improve this interface to look more like the one above (adder)
 	constraints := ss.ConstraintSet{}
-	constraints["A"] = []ss.Constraint{
-		{RangeString: ">1.1.0", Range: MustParseRange(">1.1.0")},
-	}
+	AssertNoError(constraints.AddConstraint("A", ">1.1.0"))
 
 	solver := ss.Solver{Source: source}
-
 	solver.Solve(constraints)
 }
 
-func MustParseRange(s string) semver.Range {
-	r, err := semver.ParseRange(s)
-
+func AssertNoError(err error) {
 	if err != nil {
-		panic(`semver: ParseRange(` + s + `): ` + err.Error())
+		panic(err.Error())
 	}
-
-	return r
 }
