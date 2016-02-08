@@ -3,7 +3,6 @@ package semver_solver
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -14,11 +13,7 @@ type Solver struct {
 }
 
 func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
-	ws := WorkingSet{
-		source:          s.Source,
-		artifactsByName: map[string][]Artifact{},
-		constraints:     ConstraintSet{},
-	}
+	ws := newWorkingSet(s.Source)
 
 	var allFailures []string
 
@@ -29,7 +24,7 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 			var failures []string
 
 			for _, constraint := range constraints {
-				artifact := ws.Apply(name, constraint)
+				artifact := ws.apply(name, constraint)
 
 				if artifact == nil {
 					failures = append(failures, constraint.String())
@@ -59,62 +54,6 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 	if len(allFailures) > 0 {
 		return nil, errors.New(strings.Join(allFailures, "\n"))
 	} else {
-		return ws.Picks(), nil
+		return ws.picks(), nil
 	}
-}
-
-// Support types
-
-type WorkingSet struct {
-	source          ArtifactSource
-	artifactsByName map[string][]Artifact
-	constraints     ConstraintSet
-}
-
-func (ws *WorkingSet) EnsureCache(name string) []Artifact {
-	artifacts, ok := ws.artifactsByName[name]
-
-	if ok {
-		return artifacts
-	}
-
-	artifacts = ws.source.AllVersionsOf(name)
-
-	// copy for isolation
-	localCopy := make([]Artifact, len(artifacts))
-	copy(localCopy, artifacts)
-
-	// reverse sort to make all the 'default to latest' optimizations work
-	sort.Sort(sort.Reverse(SortableArtifacts(localCopy)))
-
-	ws.artifactsByName[name] = localCopy
-	return localCopy
-}
-
-func (ws *WorkingSet) Apply(name string, constraint Constraint) *Artifact {
-	compiledRange := constraint.Range
-	for _, c := range ws.constraints[name] {
-		compiledRange = compiledRange.AND(c.Range)
-	}
-	ws.constraints[name] = append(ws.constraints[name], constraint)
-
-	artifacts := ws.EnsureCache(name)
-	for i, artifact := range artifacts {
-		if compiledRange(artifact.version) {
-			ws.artifactsByName[name] = artifacts[i:]
-			return &artifact
-		}
-	}
-
-	return nil
-}
-
-func (ws *WorkingSet) Picks() []Artifact {
-	var result []Artifact
-
-	for _, artifacts := range ws.artifactsByName {
-		result = append(result, artifacts[0])
-	}
-
-	return result
 }
