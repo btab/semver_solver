@@ -6,19 +6,19 @@ import (
 
 type ConstraintSet map[string][]Constraint
 
-func (cs ConstraintSet) AddConstraint(artifactName, cText string) error {
-	return cs.AddConstraintWithOrigin(artifactName, cText, nil)
+func (cs ConstraintSet) AddConstraint(artifactName, rangeString string) error {
+	return cs.AddConstraintWithOrigin(artifactName, rangeString, nil)
 }
 
-func (cs ConstraintSet) AddConstraintWithOrigin(artifactName, cText string, origin *Artifact) error {
-	r, err := semver.ParseRange(cText)
+func (cs ConstraintSet) AddConstraintWithOrigin(artifactName, rangeString string, origin *Artifact) error {
+	r, err := semver.ParseRange(rangeString)
 
 	if err != nil {
 		return err
 	}
 
 	c := Constraint{
-		RangeString: cText,
+		RangeString: rangeString,
 		Range:       r,
 		Origin:      origin,
 	}
