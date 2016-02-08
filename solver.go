@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// This would become the 'simple solver' if we ever added other solvers (SAT etc)
-
 type Solver struct {
 	Source ArtifactSource
 }
