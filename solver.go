@@ -41,7 +41,7 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 
 		cs = ConstraintSet{}
 		for _, artifact := range artifactsPicked {
-			for name, constraints := range artifact.dependsOn {
+			for name, constraints := range artifact.DependsOn {
 				for _, constraint := range constraints {
 					cs.AddConstraintWithOrigin(name, constraint.RangeString, artifact)
 				}

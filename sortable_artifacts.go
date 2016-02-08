@@ -11,5 +11,5 @@ func (a SortableArtifacts) Swap(i, j int) {
 }
 
 func (a SortableArtifacts) Less(i, j int) bool {
-	return a[i].version.LT(a[j].version)
+	return a[i].Version.LT(a[j].Version)
 }

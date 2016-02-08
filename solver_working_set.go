@@ -25,7 +25,7 @@ func (ws *workingSet) apply(name string, constraint Constraint) *Artifact {
 
 	artifacts := ws.ensureCache(name)
 	for i, artifact := range artifacts {
-		if compiledRange(artifact.version) {
+		if compiledRange(artifact.Version) {
 			ws.artifactsByName[name] = artifacts[i:]
 			return &artifact
 		}

@@ -31,9 +31,9 @@ func (source MockArtifactSource) AddArtifactWithDeps(name, versionString string,
 	}
 
 	versions[versionString] = Artifact{
-		name:      name,
-		version:   version,
-		dependsOn: deps,
+		Name:      name,
+		Version:   version,
+		DependsOn: deps,
 	}
 
 	return nil
