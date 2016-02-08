@@ -3,6 +3,7 @@ package semver_solver
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -16,12 +17,16 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 	var allFailures []string
 
 	for len(cs) > 0 && len(allFailures) == 0 {
+		log.Printf("processing {%v}\n", cs)
+
 		var artifactsPicked []*Artifact
 
 		for name, constraints := range cs {
 			var failures []string
 
 			for _, constraint := range constraints {
+				// TODO: protect against picks of the same artifact again and again
+				// apply has three results: no solution, new solution, same solution
 				artifact := ws.apply(name, constraint)
 
 				if artifact == nil {
@@ -38,6 +43,8 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 			failure := fmt.Sprintf("unable to satisfy constraints for %s: %v", name, failures)
 			allFailures = append(allFailures, failure)
 		}
+
+		log.Printf("picked %v\n", artifactsPicked)
 
 		cs = ConstraintSet{}
 		for _, artifact := range artifactsPicked {

@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,30 +22,6 @@ func main() {
 	for _, path := range scenarioPaths {
 		ParseScenario(path).Run()
 	}
-
-	source := ss.MockArtifactSource{}
-
-	AssertNoError(source.AddArtifact("A", "1.0.0"))
-	AssertNoError(source.AddArtifact("A", "1.2.0"))
-	AssertNoError(source.AddArtifact("A", "1.3.0"))
-	AssertNoError(source.AddArtifact("A", "2.1.0"))
-	AssertNoError(source.AddArtifact("A", "2.1.2"))
-
-	AssertNoError(source.AddArtifact("B", "1.1.0"))
-
-	constraints := ss.ConstraintSet{}
-	AssertNoError(constraints.AddConstraint("A", "<2.0.0"))
-	AssertNoError(source.AddArtifactWithDeps("B", "1.2.0", constraints))
-
-	constraints = ss.ConstraintSet{}
-	AssertNoError(constraints.AddConstraint("A", ">1.1.0"))
-	AssertNoError(constraints.AddConstraint("B", "=1.2.0"))
-
-	solver := ss.Solver{Source: source}
-	artifacts, err := solver.Solve(constraints)
-
-	log.Println(artifacts)
-	log.Println(err)
 }
 
 func AssertNoError(err error) {
@@ -61,8 +38,8 @@ type Scenario struct {
 }
 
 var (
-	availableMatcher   = regexp.MustCompile("(\\S+?)@(.+?)$")
-	constraintsMatcher = regexp.MustCompile("(\\S+?)[=>!]{2}(.+?)$")
+	availableMatcher   = regexp.MustCompile("(\\S+?)@(.+?)( -> .*?)?$")
+	constraintsMatcher = regexp.MustCompile("(\\S+?)([=<>!]{1,2}.+?)$")
 	expectMatcher      = regexp.MustCompile("(\\S+?)@(.+?)$")
 )
 
@@ -102,11 +79,30 @@ func ParseScenario(path string) *Scenario {
 		case "Available": // TODO: add DEP support
 			parts := availableMatcher.FindStringSubmatch(line)
 
-			if len(parts) != 3 {
-				die(scenario, line, "expected 2 sub-parts")
+			if len(parts) != 4 {
+				die(scenario, line, "wrong number of sub-parts")
 			}
 
-			if err := scenario.source.AddArtifact(parts[1], parts[2]); err != nil {
+			deps := ss.ConstraintSet{}
+
+			if len(parts[3]) > 0 {
+				depsString := strings.TrimPrefix(parts[3], " -> ")
+
+				for _, depString := range strings.Split(depsString, ",") {
+					depParts := constraintsMatcher.FindStringSubmatch(depString)
+
+					if len(depParts) != 3 {
+						msg := fmt.Sprintf("wrong number of sub-parts in '%s'", depString)
+						die(scenario, line, msg)
+					}
+
+					if err := deps.AddConstraint(depParts[1], depParts[2]); err != nil {
+						die(scenario, line, err.Error())
+					}
+				}
+			}
+
+			if err := scenario.source.AddArtifactWithDeps(parts[1], parts[2], deps); err != nil {
 				die(scenario, line, err.Error())
 			}
 
@@ -114,7 +110,7 @@ func ParseScenario(path string) *Scenario {
 			parts := constraintsMatcher.FindStringSubmatch(line)
 
 			if len(parts) != 3 {
-				die(scenario, line, "expected 2 sub-parts")
+				die(scenario, line, "wrong number of sub-parts")
 			}
 
 			if err := scenario.constraints.AddConstraint(parts[1], parts[2]); err != nil {
@@ -125,7 +121,7 @@ func ParseScenario(path string) *Scenario {
 			parts := expectMatcher.FindStringSubmatch(line)
 
 			if len(parts) != 3 {
-				die(scenario, line, "expected 2 sub-parts")
+				die(scenario, line, "wrong number of sub-parts")
 			}
 
 			version, err := semver.Parse(parts[2])
@@ -146,6 +142,8 @@ func ParseScenario(path string) *Scenario {
 }
 
 func (s *Scenario) Run() {
+	log.Printf("scenario %s running...\n", s.name)
+
 	solver := ss.Solver{s.source}
 
 	artifacts, err := solver.Solve(s.constraints)
@@ -172,4 +170,6 @@ func (s *Scenario) Run() {
 			s.name, name, version.String())
 		return
 	}
+
+	log.Printf("scenario %s OK\n", s.name)
 }
