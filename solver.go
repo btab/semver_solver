@@ -1,6 +1,7 @@
 package semver_solver
 
 import (
+	"fmt"
 	"log"
 	"sort"
 
@@ -19,18 +20,27 @@ func (s *Solver) Solve(initCS ConstraintSet) {
 		artifactsByName: make(map[string][]Artifact),
 	}
 
-	var errors []error
+	var allErrors []error
 
 	for name, constraints := range initCS {
+		var failures []string
+
 		for _, constraint := range constraints {
-			if error := ws.ConsumeUntil(name, constraint.Range); error != nil {
-				errors = append(errors, error)
+			if ws.ConsumeUntil(name, constraint.Range) == false {
+				failures = append(failures, constraint.String())
 			}
 		}
+
+		if len(failures) == 0 {
+			continue
+		}
+
+		err := fmt.Errorf("unable to satisfy constraints for %s: %v", name, failures)
+		allErrors = append(allErrors, err)
 	}
 
-	if len(errors) > 0 {
-		log.Println(errors)
+	if len(allErrors) > 0 {
+		log.Println(allErrors)
 		return
 	}
 
@@ -94,11 +104,11 @@ type WorkingSet struct {
 	artifactsByName map[string][]Artifact
 }
 
-func (ws *WorkingSet) EnsureCache(name string) []Artifact {
+func (ws *WorkingSet) EnsureCache(name string) ([]Artifact, bool) {
 	artifacts, ok := ws.artifactsByName[name]
 
 	if ok {
-		return artifacts
+		return artifacts, true
 	}
 
 	artifacts = ws.source.AllVersionsOf(name)
@@ -111,15 +121,31 @@ func (ws *WorkingSet) EnsureCache(name string) []Artifact {
 	sort.Sort(sort.Reverse(SortableArtifacts(localCopy)))
 
 	ws.artifactsByName[name] = localCopy
-	return localCopy
+	return localCopy, false
 }
 
-func (ws *WorkingSet) ConsumeUntil(name string, svRange semver.Range) error {
-	return nil
+// TODO: rename to Enforce or something like that
+func (ws *WorkingSet) ConsumeUntil(name string, svRange semver.Range) (ok bool) {
+	artifacts, wasInCache := ws.EnsureCache(name)
+
+	// TODO: need to consume only if the cache is freshly populated
+	//       otherwise we have to error on non-head match, chomp the head and start again
+
+	if wasInCache {
+		return svRange(artifacts[0].version)
+	}
+
+	for i, artifact := range artifacts {
+		if svRange(artifact.version) {
+			ws.artifactsByName[name] = artifacts[i:]
+			return true
+		}
+	}
+
+	return false
 }
 
-// this is the simple version which may be replaced by Head, Tail and Chomp operations
 func (ws *WorkingSet) Get(name string) []Artifact {
-	artifacts := ws.EnsureCache(name)
+	artifacts, _ := ws.EnsureCache(name)
 	return artifacts
 }
