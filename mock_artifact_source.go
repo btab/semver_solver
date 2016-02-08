@@ -8,11 +8,11 @@ import (
 
 type MockArtifactSource map[string]map[string]Artifact
 
-func (source MockArtifactSource) AddArtifact(name string, version semver.Version) {
-	source.AddArtifactWithDeps(name, version, ConstraintSet{})
+func (source MockArtifactSource) AddArtifact(name string, version semver.Version) *Artifact {
+	return source.AddArtifactWithDeps(name, version, ConstraintSet{})
 }
 
-func (source MockArtifactSource) AddArtifactWithDeps(name string, version semver.Version, deps ConstraintSet) {
+func (source MockArtifactSource) AddArtifactWithDeps(name string, version semver.Version, deps ConstraintSet) *Artifact {
 	verString := version.String()
 
 	versions, ok := source[name]
@@ -26,11 +26,15 @@ func (source MockArtifactSource) AddArtifactWithDeps(name string, version semver
 		log.Fatalf("already added %s @ %s to mock artifact source", name, verString)
 	}
 
-	versions[verString] = Artifact{
+	artifact := Artifact{
 		name:      name,
 		version:   version,
 		dependsOn: deps,
 	}
+
+	versions[verString] = artifact
+
+	return &artifact
 }
 
 func (source MockArtifactSource) AllVersionsOf(name string) []Artifact {

@@ -1,12 +1,10 @@
 package semver_solver
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
-
-	"github.com/blang/semver"
 )
 
 // This would become the 'simple solver' if we ever added other solvers (SAT etc)
@@ -15,89 +13,54 @@ type Solver struct {
 	Source ArtifactSource
 }
 
-func (s *Solver) Solve(initCS ConstraintSet) {
+func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 	ws := WorkingSet{
 		source:          s.Source,
-		artifactsByName: make(map[string][]Artifact),
+		artifactsByName: map[string][]Artifact{},
+		constraints:     ConstraintSet{},
 	}
 
-	var allErrors []error
+	var allFailures []string
 
-	for name, constraints := range initCS {
-		var failures []string
+	for len(cs) > 0 && len(allFailures) == 0 {
+		var artifactsPicked []*Artifact
 
-		for _, constraint := range constraints {
-			if ws.ConsumeUntil(name, constraint.Range) == false {
-				failures = append(failures, constraint.String())
+		for name, constraints := range cs {
+			var failures []string
+
+			for _, constraint := range constraints {
+				artifact := ws.Apply(name, constraint)
+
+				if artifact == nil {
+					failures = append(failures, constraint.String())
+				} else {
+					artifactsPicked = append(artifactsPicked, artifact)
+				}
+			}
+
+			if len(failures) == 0 {
+				continue
+			}
+
+			failure := fmt.Sprintf("unable to satisfy constraints for %s: %v", name, failures)
+			allFailures = append(allFailures, failure)
+		}
+
+		cs = ConstraintSet{}
+		for _, artifact := range artifactsPicked {
+			for name, constraints := range artifact.dependsOn {
+				for _, constraint := range constraints {
+					cs.AddConstraintWithOrigin(name, constraint.RangeString, artifact)
+				}
 			}
 		}
-
-		if len(failures) == 0 {
-			continue
-		}
-
-		err := fmt.Errorf("unable to satisfy constraints for %s: %v", name, failures)
-		allErrors = append(allErrors, err)
 	}
 
-	if len(allErrors) > 0 {
-		log.Println(allErrors)
-		return
+	if len(allFailures) > 0 {
+		return nil, errors.New(strings.Join(allFailures, "\n"))
+	} else {
+		return ws.Picks(), nil
 	}
-
-	cs := ConstraintSet{}
-	for name := range initCS {
-		cs[name] = initCS[name]
-	}
-
-	log.Println(_solve(ws, cs))
-
-	var pickStrings []string
-	for _, p := range ws.Picks() {
-		pickStrings = append(pickStrings, p.String())
-	}
-	log.Println(strings.Join(pickStrings, ", "))
-}
-
-func _solve(ws WorkingSet, cs ConstraintSet) error {
-	for name, constraints := range cs {
-		for _, constraint := range constraints {
-			ws.ConsumeUntil(name, constraint.Range)
-		}
-	}
-
-	// for name, svRange := range workingCS {
-	// chomp through non-matching items in working set if at root
-	// otherwise return error if non-root and head does not match constraint
-
-	// filtered := Filter(workingAS[name], svRange)
-	// what if this further filters something we've already filtered?
-	//   -- simple case is that it filters out an existing pick (backtrack)
-	//   -- but it could filter out other things
-	//   -- what if, instead of a complete filter, the working set for each artifact
-	//   ---- existed to eliminate its head as a candidate?
-	//   -- so as soon as we pick something we pop it off the head?
-
-	// if len(filtered) == 0 {
-	// 	// TODO: instrument for friendly debug (we can scan the picks for a list of active constraints)
-	// 	return errors.New("constraints filtered out all possible picks for " + name)
-	// }
-
-	// if picked, ok := picks[name]; ok {
-	// 	if filtered[0] != picked {
-	// 		return errors.New("constraints filtered out existing pick for " + name)
-	// 	}
-	// 	return nil
-	// }
-
-	// picks[name] = filtered[0]
-	// new constaints
-
-	// }
-
-	// any new constraints? do another getAllNewArtifactInfo(sourceAS, workingAS, names)
-
-	return nil
 }
 
 // Support types
@@ -105,13 +68,14 @@ func _solve(ws WorkingSet, cs ConstraintSet) error {
 type WorkingSet struct {
 	source          ArtifactSource
 	artifactsByName map[string][]Artifact
+	constraints     ConstraintSet
 }
 
-func (ws *WorkingSet) EnsureCache(name string) ([]Artifact, bool) {
+func (ws *WorkingSet) EnsureCache(name string) []Artifact {
 	artifacts, ok := ws.artifactsByName[name]
 
 	if ok {
-		return artifacts, true
+		return artifacts
 	}
 
 	artifacts = ws.source.AllVersionsOf(name)
@@ -124,33 +88,25 @@ func (ws *WorkingSet) EnsureCache(name string) ([]Artifact, bool) {
 	sort.Sort(sort.Reverse(SortableArtifacts(localCopy)))
 
 	ws.artifactsByName[name] = localCopy
-	return localCopy, false
+	return localCopy
 }
 
-// TODO: rename to Enforce or something like that
-func (ws *WorkingSet) ConsumeUntil(name string, svRange semver.Range) (ok bool) {
-	artifacts, wasInCache := ws.EnsureCache(name)
-
-	// TODO: need to consume only if the cache is freshly populated
-	//       otherwise we have to error on non-head match, chomp the head and start again
-
-	if wasInCache {
-		return svRange(artifacts[0].version)
+func (ws *WorkingSet) Apply(name string, constraint Constraint) *Artifact {
+	compiledRange := constraint.Range
+	for _, c := range ws.constraints[name] {
+		compiledRange = compiledRange.AND(c.Range)
 	}
+	ws.constraints[name] = append(ws.constraints[name], constraint)
 
+	artifacts := ws.EnsureCache(name)
 	for i, artifact := range artifacts {
-		if svRange(artifact.version) {
+		if compiledRange(artifact.version) {
 			ws.artifactsByName[name] = artifacts[i:]
-			return true
+			return &artifact
 		}
 	}
 
-	return false
-}
-
-func (ws *WorkingSet) Get(name string) []Artifact {
-	artifacts, _ := ws.EnsureCache(name)
-	return artifacts
+	return nil
 }
 
 func (ws *WorkingSet) Picks() []Artifact {
