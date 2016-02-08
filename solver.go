@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"github.com/blang/semver"
 )
@@ -49,11 +50,13 @@ func (s *Solver) Solve(initCS ConstraintSet) {
 		cs[name] = initCS[name]
 	}
 
-	// picks := map[string]Artifact{}
-	// picks are by definition the heads of the working set
-
 	log.Println(_solve(ws, cs))
-	log.Println(ws)
+
+	var pickStrings []string
+	for _, p := range ws.Picks() {
+		pickStrings = append(pickStrings, p.String())
+	}
+	log.Println(strings.Join(pickStrings, ", "))
 }
 
 func _solve(ws WorkingSet, cs ConstraintSet) error {
@@ -148,4 +151,14 @@ func (ws *WorkingSet) ConsumeUntil(name string, svRange semver.Range) (ok bool) 
 func (ws *WorkingSet) Get(name string) []Artifact {
 	artifacts, _ := ws.EnsureCache(name)
 	return artifacts
+}
+
+func (ws *WorkingSet) Picks() []Artifact {
+	var result []Artifact
+
+	for _, artifacts := range ws.artifactsByName {
+		result = append(result, artifacts[0])
+	}
+
+	return result
 }
