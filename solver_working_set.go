@@ -59,11 +59,11 @@ func (ws *workingSet) ensureCache(name string) (as []Artifact, cacheMiss bool) {
 	return localCopy, true
 }
 
-func (ws *workingSet) picks() []Artifact {
-	var result []Artifact
+func (ws *workingSet) picks() []*Artifact {
+	var result []*Artifact
 
 	for _, artifacts := range ws.artifactsByName {
-		result = append(result, artifacts[0])
+		result = append(result, &artifacts[0])
 	}
 
 	return result

@@ -11,7 +11,7 @@ type Solver struct {
 	Source ArtifactSource
 }
 
-func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
+func (s *Solver) Solve(cs ConstraintSet) ([]*Artifact, error) {
 	ws := newWorkingSet(s.Source)
 
 	var allFailures []string

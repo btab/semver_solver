@@ -49,7 +49,6 @@ func ParseScenario(path string) *Scenario {
 		source:       ss.MockArtifactSource{},
 		constraints:  ss.ConstraintSet{},
 		expectations: map[string]semver.Version{},
-		// TODO: add support for expected errors
 	}
 
 	file, err := os.Open(path)
@@ -76,7 +75,7 @@ func ParseScenario(path string) *Scenario {
 
 		switch section {
 
-		case "Available": // TODO: add DEP support
+		case "Available":
 			parts := availableMatcher.FindStringSubmatch(line)
 
 			if len(parts) != 4 {
@@ -148,6 +147,9 @@ func (s *Scenario) Run() {
 
 	artifacts, err := solver.Solve(s.constraints)
 
+	log.Printf("scenario %s picks: %v\n", s.name, artifacts)
+	log.Printf("scenario %s error: %v\n", s.name, err)
+
 	if err != nil && len(s.expectations) > 0 {
 		log.Printf("scenario %s unexpected error: %s\n", err.Error())
 		return
@@ -170,6 +172,4 @@ func (s *Scenario) Run() {
 			s.name, name, version.String())
 		return
 	}
-
-	log.Printf("scenario %s OK\n", s.name)
 }
