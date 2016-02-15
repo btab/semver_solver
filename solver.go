@@ -25,13 +25,11 @@ func (s *Solver) Solve(cs ConstraintSet) ([]Artifact, error) {
 			var failures []string
 
 			for _, constraint := range constraints {
-				// TODO: protect against picks of the same artifact again and again
-				// apply has three results: no solution, new solution, same solution
-				artifact := ws.apply(name, constraint)
+				artifact, newPick := ws.apply(name, constraint)
 
 				if artifact == nil {
 					failures = append(failures, constraint.String())
-				} else {
+				} else if newPick {
 					artifactsPicked = append(artifactsPicked, artifact)
 				}
 			}

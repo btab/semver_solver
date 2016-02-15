@@ -16,29 +16,34 @@ func newWorkingSet(source ArtifactSource) *workingSet {
 	}
 }
 
-func (ws *workingSet) apply(name string, constraint Constraint) *Artifact {
+func (ws *workingSet) apply(name string, constraint Constraint) (a *Artifact, newPick bool) {
 	compiledRange := constraint.Range
 	for _, c := range ws.constraints[name] {
 		compiledRange = compiledRange.AND(c.Range)
 	}
 	ws.constraints[name] = append(ws.constraints[name], constraint)
 
-	artifacts := ws.ensureCache(name)
+	artifacts, cacheMiss := ws.ensureCache(name)
+
 	for i, artifact := range artifacts {
 		if compiledRange(artifact.Version) {
-			ws.artifactsByName[name] = artifacts[i:]
-			return &artifact
+			if !cacheMiss && i == 0 {
+				return &artifact, false
+			} else {
+				ws.artifactsByName[name] = artifacts[i:]
+				return &artifact, true
+			}
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
-func (ws *workingSet) ensureCache(name string) []Artifact {
+func (ws *workingSet) ensureCache(name string) (as []Artifact, cacheMiss bool) {
 	artifacts, ok := ws.artifactsByName[name]
 
 	if ok {
-		return artifacts
+		return artifacts, false
 	}
 
 	artifacts = ws.source.AllVersionsOf(name)
@@ -51,7 +56,7 @@ func (ws *workingSet) ensureCache(name string) []Artifact {
 	sort.Sort(sort.Reverse(SortableArtifacts(localCopy)))
 
 	ws.artifactsByName[name] = localCopy
-	return localCopy
+	return localCopy, true
 }
 
 func (ws *workingSet) picks() []Artifact {
