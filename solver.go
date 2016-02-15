@@ -3,7 +3,6 @@ package semver_solver
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -17,7 +16,7 @@ func (s *Solver) Solve(cs ConstraintSet) ([]*Artifact, error) {
 	var allFailures []string
 
 	for len(cs) > 0 && len(allFailures) == 0 {
-		log.Printf("processing {%v}\n", cs)
+		//log.Printf("processing {%v}\n", cs)
 
 		var artifactsPicked []*Artifact
 
@@ -42,7 +41,7 @@ func (s *Solver) Solve(cs ConstraintSet) ([]*Artifact, error) {
 			allFailures = append(allFailures, failure)
 		}
 
-		log.Printf("picked %v\n", artifactsPicked)
+		//log.Printf("picked %v\n", artifactsPicked)
 
 		cs = ConstraintSet{}
 		for _, artifact := range artifactsPicked {
