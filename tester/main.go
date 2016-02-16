@@ -67,6 +67,10 @@ func ParseScenario(path string) *Scenario {
 	for scanner.Scan() {
 		line := scanner.Text()
 
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+
 		if !strings.HasPrefix(line, "\t") {
 			section = strings.TrimSpace(line)
 			continue
