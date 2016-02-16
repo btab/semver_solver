@@ -20,14 +20,14 @@ type cell struct {
 }
 
 type conflictSnapshot struct {
-	cellsByArtifactName map[string]*cell
-	conflictingCell     *cell
+	activatedCellsByName map[string]*cell
+	conflictingCell      *cell
 }
 
 func (cs *conflictSnapshot) String() string {
 	var activated []string
 
-	for _, cell := range cs.cellsByArtifactName {
+	for _, cell := range cs.activatedCellsByName {
 		activated = append(activated, cell.picks[0].String())
 	}
 
@@ -47,7 +47,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 		pendingCells = append(pendingCells, cell)
 	}
 
-	cellsByArtifactName := map[string]*cell{} // TODO: rename - activated
+	activatedCellsByName := map[string]*cell{}
 	var firstConflict *conflictSnapshot
 
 	for len(pendingCells) > 0 {
@@ -61,14 +61,14 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			constraint := pCell.constraint
 			name := constraint.ArtifactName
 
-			existingCell := cellsByArtifactName[name]
+			existingCell := activatedCellsByName[name]
 
 			// Artifact never seen before, activate its cell
 			//  - record its activation with the global list
 			//  - add its dependencies to the tail of the pending cells
 
 			if existingCell == nil {
-				cellsByArtifactName[name] = pCell
+				activatedCellsByName[name] = pCell
 				pCell.activated = true
 
 				pCell.picks = retrieveAllVersions(s.Source, name)
@@ -94,12 +94,12 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 
 			if firstConflict == nil {
 				firstConflict = &conflictSnapshot{
-					cellsByArtifactName: map[string]*cell{},
-					conflictingCell:     pCell,
+					activatedCellsByName: map[string]*cell{},
+					conflictingCell:      pCell,
 				}
 
-				for name, cell := range cellsByArtifactName {
-					firstConflict.cellsByArtifactName[name] = cell
+				for name, cell := range activatedCellsByName {
+					firstConflict.activatedCellsByName[name] = cell
 				}
 			}
 
@@ -107,7 +107,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			for {
 				matchIndex := indexOfFirstMatch(cell.picks[1:], cell.constraint)
 				if matchIndex != -1 {
-					pruneChildren(cell, cellsByArtifactName)
+					pruneChildren(cell, activatedCellsByName)
 					pick(cell, matchIndex+1, &newPendingCells)
 					break
 				}
@@ -124,7 +124,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 	}
 
 	var artifacts []*Artifact
-	for _, cell := range cellsByArtifactName {
+	for _, cell := range activatedCellsByName {
 		artifacts = append(artifacts, &cell.picks[0])
 	}
 
@@ -154,14 +154,14 @@ func retrieveAllVersions(s ArtifactSource, name string) []Artifact {
 	return localCopy
 }
 
-func pruneChildren(fromCell *cell, cellsByArtifactName map[string]*cell) {
+func pruneChildren(fromCell *cell, activatedCellsByName map[string]*cell) {
 	for _, cell := range fromCell.children {
 		if cell.activated {
-			delete(cellsByArtifactName, cell.constraint.ArtifactName)
+			delete(activatedCellsByName, cell.constraint.ArtifactName)
 		}
 
 		cell.garbage = true
-		pruneChildren(cell, cellsByArtifactName)
+		pruneChildren(cell, activatedCellsByName)
 	}
 
 	fromCell.children = nil
