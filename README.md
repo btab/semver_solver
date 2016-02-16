@@ -32,6 +32,14 @@ func main() {
 }
 ```
 
+SCENARIO TESTING
+----------------
+
+From the root of the project...
+```
+go run tester/main.go
+```
+
 TODO
 ----
 
