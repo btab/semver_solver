@@ -43,5 +43,6 @@ go run tester/main.go
 TODO
 ----
 
-1. look at apt, yum, bundler (molinillo), npm, cargo, maven, brew
-2. generalize to a SAT(-3) solver (minisat / other DLL solver)?
+1. find some really nasty-complex real-world examples to smoke test this thing
+2. look at apt, yum, bundler (molinillo), npm, cargo, maven, brew
+3. generalize to a SAT(-3) solver (minisat / other DLL solver)?
