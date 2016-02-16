@@ -21,6 +21,7 @@ func main() {
 
 	for _, path := range scenarioPaths {
 		ParseScenario(path).Run()
+		println()
 	}
 }
 
@@ -33,7 +34,7 @@ func AssertNoError(err error) {
 type Scenario struct {
 	name         string
 	source       ss.MockArtifactSource
-	constraints  ss.ConstraintSet
+	constraints  []*ss.Constraint
 	expectations map[string]semver.Version
 }
 
@@ -47,7 +48,7 @@ func ParseScenario(path string) *Scenario {
 	scenario := &Scenario{
 		name:         filepath.Base(path),
 		source:       ss.MockArtifactSource{},
-		constraints:  ss.ConstraintSet{},
+		constraints:  nil,
 		expectations: map[string]semver.Version{},
 	}
 
@@ -82,7 +83,7 @@ func ParseScenario(path string) *Scenario {
 				die(scenario, line, "wrong number of sub-parts")
 			}
 
-			deps := ss.ConstraintSet{}
+			var deps []*ss.Constraint
 
 			if len(parts[3]) > 0 {
 				depsString := strings.TrimPrefix(parts[3], " -> ")
@@ -95,9 +96,11 @@ func ParseScenario(path string) *Scenario {
 						die(scenario, line, msg)
 					}
 
-					if err := deps.AddConstraint(depParts[1], depParts[2]); err != nil {
+					dep, err := ss.NewConstraint(depParts[1], depParts[2])
+					if err != nil {
 						die(scenario, line, err.Error())
 					}
+					deps = append(deps, dep)
 				}
 			}
 
@@ -112,9 +115,11 @@ func ParseScenario(path string) *Scenario {
 				die(scenario, line, "wrong number of sub-parts")
 			}
 
-			if err := scenario.constraints.AddConstraint(parts[1], parts[2]); err != nil {
+			c, err := ss.NewConstraint(parts[1], parts[2])
+			if err != nil {
 				die(scenario, line, err.Error())
 			}
+			scenario.constraints = append(scenario.constraints, c)
 
 		case "Expect":
 			parts := expectMatcher.FindStringSubmatch(line)
@@ -145,13 +150,19 @@ func (s *Scenario) Run() {
 
 	solver := ss.Solver{s.source}
 
-	artifacts, err := solver.Solve(s.constraints)
+	var cs []*ss.Constraint
+	for _, c := range s.constraints {
+		cs = append(cs, c)
+	}
+
+	artifacts, err := solver.Solve(cs)
 
 	log.Printf("scenario %s picks: %v\n", s.name, artifacts)
 	log.Printf("scenario %s error: %v\n", s.name, err)
 
 	if err != nil && len(s.expectations) > 0 {
-		log.Printf("scenario %s unexpected error: %s\n", err.Error())
+		log.Printf("scenario %s unexpected error: %s",
+			s.name, err.Error())
 		return
 	}
 
@@ -159,7 +170,7 @@ func (s *Scenario) Run() {
 		expectedVersion, ok := s.expectations[artifact.Name]
 
 		if !ok || expectedVersion.NE(artifact.Version) {
-			log.Printf("scenario %s generated unexpected artifact: %s\n",
+			log.Printf("scenario %s generated unexpected artifact: %s",
 				s.name, artifact.String())
 			return
 		}
@@ -168,7 +179,7 @@ func (s *Scenario) Run() {
 	}
 
 	for name, version := range s.expectations {
-		log.Printf("scenario %s failed to generate expected artifact: %s@%s\n",
+		log.Printf("scenario %s failed to generate expected artifact: %s@%s",
 			s.name, name, version.String())
 		return
 	}

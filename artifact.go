@@ -5,7 +5,7 @@ import "github.com/blang/semver"
 type Artifact struct {
 	Name      string
 	Version   semver.Version
-	DependsOn ConstraintSet
+	DependsOn []*Constraint
 }
 
 func (a *Artifact) String() string {

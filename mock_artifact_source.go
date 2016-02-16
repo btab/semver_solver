@@ -9,10 +9,10 @@ import (
 type MockArtifactSource map[string]map[string]Artifact
 
 func (source MockArtifactSource) AddArtifact(name, versionString string) error {
-	return source.AddArtifactWithDeps(name, versionString, ConstraintSet{})
+	return source.AddArtifactWithDeps(name, versionString, nil)
 }
 
-func (source MockArtifactSource) AddArtifactWithDeps(name, versionString string, deps ConstraintSet) error {
+func (source MockArtifactSource) AddArtifactWithDeps(name, versionString string, deps []*Constraint) error {
 	versions, ok := source[name]
 
 	if !ok {
