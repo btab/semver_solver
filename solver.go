@@ -3,7 +3,6 @@ package semver_solver
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sort"
 )
 
@@ -34,8 +33,6 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 		var newPendingCells []*cell
 
 		for _, pCell := range pendingCells {
-			log.Printf("processing %v", pCell.constraint)
-
 			if pCell.garbage {
 				continue
 			}
@@ -60,8 +57,6 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 
 				pick(pCell, matchIndex, &newPendingCells)
 
-				log.Printf("activated %v", &pCell.picks[0])
-
 				continue
 			}
 
@@ -75,30 +70,15 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			//  - log if this is the first such conflict (in case we can't find a solution)
 			//  - backtrack up the tree, until an alternative path is found
 
-			cell := pCell.parent
-
-			for {
-				picks := cell.picks[1:]
-				matchIndex := indexOfFirstMatch(picks, cell.constraint)
-
-				if matchIndex == -1 {
-					cell = cell.parent
-
-					if cell == nil {
-						// TODO: log first conflict
-						return nil, errors.New("no solutions found")
-					}
-
-					continue // keep unwinding - need to log?
-				}
-
-				log.Printf("pruning children of %v", &cell.picks[0])
-				pruneChildren(cell)
-
-				pick(cell, matchIndex+1, &newPendingCells)
-
-				break
+			matchIndex := indexOfFirstMatch(existingCell.picks[1:], existingCell.constraint)
+			if matchIndex == -1 {
+				// TODO: log first conflict
+				return nil, errors.New("no solutions found")
 			}
+
+			pruneChildren(existingCell)
+
+			pick(existingCell, matchIndex+1, &newPendingCells)
 		}
 
 		pendingCells = newPendingCells
