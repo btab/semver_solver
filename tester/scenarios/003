@@ -1,3 +1,5 @@
+# cyclic dependencies are supported and invalid cycles are removed
+
 Available
 	A@1.0.0
 	A@1.2.0

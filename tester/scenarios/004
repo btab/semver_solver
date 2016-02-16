@@ -1,3 +1,5 @@
+# mutually supportive convergent rules that form a cycle are fine
+
 Available
 	A@1.0.0 -> B=2.0.0
 	B@2.0.0 -> A>=1.0.0

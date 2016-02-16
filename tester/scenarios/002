@@ -1,3 +1,5 @@
+# mutual backtracking where a second tree (B=1.2.0) causes the first (A>1.1.0) to backtrack
+
 Available
 	A@1.0.0
 	A@1.2.0

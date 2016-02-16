@@ -1,3 +1,5 @@
+# more complex mutual backtracking example (like 002)
+
 Available
 	A@1.0.0 -> B=1.0.0
 	A@2.0.0 -> B=1.0.0
