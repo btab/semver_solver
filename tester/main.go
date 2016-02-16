@@ -152,7 +152,7 @@ func ParseScenario(path string) *Scenario {
 func (s *Scenario) Run() {
 	log.Printf("scenario %s running...\n", s.name)
 
-	solver := ss.Solver{source: s.source}
+	solver := ss.Solver{Source: s.source}
 
 	var cs []*ss.Constraint
 	for _, c := range s.constraints {
