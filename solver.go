@@ -15,6 +15,7 @@ type cell struct {
 	parent     *cell
 	picks      []Artifact
 	children   []*cell
+	activated  bool
 	garbage    bool
 }
 
@@ -46,7 +47,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 		pendingCells = append(pendingCells, cell)
 	}
 
-	cellsByArtifactName := map[string]*cell{}
+	cellsByArtifactName := map[string]*cell{} // TODO: rename - activated
 	var firstConflict *conflictSnapshot
 
 	for len(pendingCells) > 0 {
@@ -68,6 +69,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 
 			if existingCell == nil {
 				cellsByArtifactName[name] = pCell
+				pCell.activated = true
 
 				pCell.picks = retrieveAllVersions(s.Source, name)
 				matchIndex := indexOfFirstMatch(pCell.picks, constraint)
@@ -101,14 +103,21 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 				}
 			}
 
-			matchIndex := indexOfFirstMatch(existingCell.picks[1:], existingCell.constraint)
-			if matchIndex == -1 {
-				return nil, fmt.Errorf("no solutions found: %v", firstConflict)
+			cell := existingCell
+			for {
+				matchIndex := indexOfFirstMatch(cell.picks[1:], cell.constraint)
+				if matchIndex != -1 {
+					pruneChildren(cell, cellsByArtifactName)
+					pick(cell, matchIndex+1, &newPendingCells)
+					break
+				}
+
+				cell = cell.parent
+
+				if cell == nil {
+					return nil, fmt.Errorf("no solutions found: %v", firstConflict)
+				}
 			}
-
-			pruneChildren(existingCell)
-
-			pick(existingCell, matchIndex+1, &newPendingCells)
 		}
 
 		pendingCells = newPendingCells
@@ -145,10 +154,14 @@ func retrieveAllVersions(s ArtifactSource, name string) []Artifact {
 	return localCopy
 }
 
-func pruneChildren(fromCell *cell) {
+func pruneChildren(fromCell *cell, cellsByArtifactName map[string]*cell) {
 	for _, cell := range fromCell.children {
+		if cell.activated {
+			delete(cellsByArtifactName, cell.constraint.ArtifactName)
+		}
+
 		cell.garbage = true
-		pruneChildren(cell)
+		pruneChildren(cell, cellsByArtifactName)
 	}
 
 	fromCell.children = nil
