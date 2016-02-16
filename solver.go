@@ -63,7 +63,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			existingCell := cellsByArtifactName[name]
 
 			// Artifact never seen before, activate its cell
-			//  - record its activation with the global list and its parent
+			//  - record its activation with the global list
 			//  - add its dependencies to the tail of the pending cells
 
 			if existingCell == nil {
