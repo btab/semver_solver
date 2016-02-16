@@ -1,6 +1,6 @@
 SEMVER SOLVER
 -------------
-A golang native dependency resolver with full semver 2 support.
+A golang native dependency resolver with full semver 2 support. Depends on https://github.com/blang/semver.
 
 USAGE
 -----
