@@ -1,9 +1,9 @@
 package semver_solver
 
 import (
-	"errors"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type Solver struct {
@@ -18,6 +18,25 @@ type cell struct {
 	garbage    bool
 }
 
+type conflictSnapshot struct {
+	cellsByArtifactName map[string]*cell
+	conflictingCell     *cell
+}
+
+func (cs *conflictSnapshot) String() string {
+	var activated []string
+
+	for _, cell := range cs.cellsByArtifactName {
+		activated = append(activated, cell.picks[0].String())
+	}
+
+	cell := cs.conflictingCell
+
+	return "constraint " + cell.constraint.String() +
+		" from " + cell.parent.picks[0].String() +
+		" conflicted with picked artifacts [" + strings.Join(activated, ", ") + "]"
+}
+
 func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 	var pendingCells []*cell
 	for _, c := range constraints {
@@ -28,6 +47,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 	}
 
 	cellsByArtifactName := map[string]*cell{}
+	var firstConflict *conflictSnapshot
 
 	for len(pendingCells) > 0 {
 		var newPendingCells []*cell
@@ -70,10 +90,20 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			//  - log if this is the first such conflict (in case we can't find a solution)
 			//  - backtrack up the tree, until an alternative path is found
 
+			if firstConflict == nil {
+				firstConflict = &conflictSnapshot{
+					cellsByArtifactName: map[string]*cell{},
+					conflictingCell:     pCell,
+				}
+
+				for name, cell := range cellsByArtifactName {
+					firstConflict.cellsByArtifactName[name] = cell
+				}
+			}
+
 			matchIndex := indexOfFirstMatch(existingCell.picks[1:], existingCell.constraint)
 			if matchIndex == -1 {
-				// TODO: log first conflict
-				return nil, errors.New("no solutions found")
+				return nil, fmt.Errorf("no solutions found: %v", firstConflict)
 			}
 
 			pruneChildren(existingCell)
