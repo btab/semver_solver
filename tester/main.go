@@ -154,12 +154,7 @@ func (s *Scenario) Run() {
 
 	solver := ss.Solver{Source: s.source}
 
-	var cs []*ss.Constraint
-	for _, c := range s.constraints {
-		cs = append(cs, c)
-	}
-
-	artifacts, err := solver.Solve(cs)
+	artifacts, err := solver.Solve(s.constraints)
 
 	log.Printf("scenario %s picks: %v\n", s.name, artifacts)
 	log.Printf("scenario %s error: %v\n", s.name, err)
