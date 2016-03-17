@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/blang/semver"
 )
 
 type Solver struct {
@@ -72,7 +74,7 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 				pCell.activated = true
 
 				pCell.picks = retrieveAllVersions(s.Source, name)
-				matchIndex := indexOfFirstMatch(pCell.picks, constraint)
+				matchIndex := indexOfFirstMatch(pCell.picks, constraint.Range)
 				if matchIndex == -1 {
 					return nil, fmt.Errorf("no artifacts match %s", constraint.String())
 				}
@@ -104,8 +106,17 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 			}
 
 			cell := existingCell
+			conflictingConstraint := constraint
+
 			for {
-				matchIndex := indexOfFirstMatch(cell.picks[1:], cell.constraint)
+				svRange := cell.constraint.Range
+
+				// Blend in the constraint that kicked this backtracking off
+				if conflictingConstraint.ArtifactName == cell.constraint.ArtifactName {
+					svRange = svRange.AND(conflictingConstraint.Range)
+				}
+
+				matchIndex := indexOfFirstMatch(cell.picks[1:], svRange)
 				if matchIndex != -1 {
 					pruneChildren(cell, activatedCellsByName)
 					pick(cell, matchIndex+1, &newPendingCells)
@@ -131,9 +142,9 @@ func (s *Solver) Solve(constraints []*Constraint) ([]*Artifact, error) {
 	return artifacts, nil
 }
 
-func indexOfFirstMatch(artifacts []Artifact, constraint *Constraint) int {
+func indexOfFirstMatch(artifacts []Artifact, svRange semver.Range) int {
 	for i, a := range artifacts {
-		if constraint.Range(a.Version) {
+		if svRange(a.Version) {
 			return i
 		}
 	}
