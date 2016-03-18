@@ -19,9 +19,22 @@ func main() {
 	scenarioPaths, err := filepath.Glob("tester/scenarios/*")
 	AssertNoError(err)
 
+	var failedScenarios []string
+
 	for _, path := range scenarioPaths {
-		ParseScenario(path).Run()
+		scenario := ParseScenario(path)
+
+		if scenario.Run() == false {
+			failedScenarios = append(failedScenarios, scenario.name)
+		}
+
 		println()
+	}
+
+	if len(failedScenarios) > 0 {
+		log.Printf("** failed scenarios: %v **", failedScenarios)
+	} else {
+		log.Println("** all scenarios passed **")
 	}
 }
 
@@ -149,7 +162,7 @@ func ParseScenario(path string) *Scenario {
 	return scenario
 }
 
-func (s *Scenario) Run() {
+func (s *Scenario) Run() bool {
 	log.Printf("scenario %s running...\n", s.name)
 
 	solver := ss.Solver{Source: s.source}
@@ -162,7 +175,7 @@ func (s *Scenario) Run() {
 	if err != nil && len(s.expectations) > 0 {
 		log.Printf("scenario %s unexpected error: %s",
 			s.name, err.Error())
-		return
+		return false
 	}
 
 	for _, artifact := range artifacts {
@@ -171,7 +184,7 @@ func (s *Scenario) Run() {
 		if !ok || expectedVersion.NE(artifact.Version) {
 			log.Printf("scenario %s generated unexpected artifact: %s",
 				s.name, artifact.String())
-			return
+			return false
 		}
 
 		delete(s.expectations, artifact.Name)
@@ -180,6 +193,8 @@ func (s *Scenario) Run() {
 	for name, version := range s.expectations {
 		log.Printf("scenario %s failed to generate expected artifact: %s@%s",
 			s.name, name, version.String())
-		return
+		return false
 	}
+
+	return true
 }
