@@ -25,7 +25,7 @@ func main() {
 	solver := ss.Solver{source}
 
 	constraint, _ := ss.NewConstraint("foo", "<2.0.0")
-	constraints := []*ss.Constraint{constaint}
+	constraints := []*ss.Constraint{constraint}
 
 	artifacts, err := solver.Solve(constraints)
 }
