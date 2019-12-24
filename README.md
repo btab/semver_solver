@@ -2,6 +2,8 @@ SEMVER SOLVER
 -------------
 A golang native dependency resolver with full semver 2 support. Depends on https://github.com/blang/semver.
 
+Built to prove out the algorithm before building https://github.com/btab/pony-semver. No current intention to backport improvements from that library to this.
+
 USAGE
 -----
 
